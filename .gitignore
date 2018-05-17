@@ -1,0 +1,5 @@
+*.JPG
+*.MOV
+data/generated_images/
+*.pyc
+*.names

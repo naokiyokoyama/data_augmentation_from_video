@@ -27,8 +27,12 @@ def randomBlur(img,maxBlur):
 	img = cv2.blur(img,(blur_kernel,blur_kernel))
 	return img
 
-def resizeRandom(img,lower,upper):
+def resizeRandom(img,lower,upper,shp):
 	span = upper-lower
 	randSize = lower+np.random.random()*span
-	randSize = float(int(randSize*100))/100.0
-	return cv2.resize(img,(0,0),fx=randSize,fy=randSize)
+	bg_h = shp[0]
+	new_h = bg_h*randSize
+	new_w = img.shape[1]*new_h/img.shape[0];
+	resized = cv2.resize(img,(int(new_w),int(new_h)),interpolation=cv2.INTER_AREA)
+	resized[resized[:,:,3]<255]=[0,0,0,0]
+	return resized
