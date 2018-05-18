@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import time
 
 def bgsegmMask(bg,img):
 	fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
@@ -79,6 +80,7 @@ def extractObjectold(bg,img):
 	return img
 
 def createComposite(img,mask):
+	timeup = time.time()+10
 	while 1:
 		single_layer = mask.copy()
 		single_layer[:,:,:] = 0
@@ -94,9 +96,13 @@ def createComposite(img,mask):
 		if np.mean(mask_test[:,:,3])==0:
 			mask[ymin:ymax,xmin:xmax] = img
 			break
+		if time.time()>timeup:
+			ret = False
+			return ret,0,0,0,0,0,0
 	width = mask.shape[1]
 	height = mask.shape[0]
-	return width,height,xmin,ymin,xmax,ymax
+	ret = True
+	return ret,width,height,xmin,ymin,xmax,ymax
 
 # import cv2
 # import numpy as np

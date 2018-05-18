@@ -61,11 +61,14 @@ def main(COMPOSITES,NAME):
 		# for each class,
 		filename = directory+'/'+str(x)+'.JPG'
 		for class_id in chosen_classes:
-			img,class_name = randomFrame(class_id)
-			# img = distorter.resizeRandom(img,0.2,0.5,bg.shape)
-			img = distorter.resizeRandom(img,resize_max-resize_span*fac,resize_max-resize_span*(fac-1),bg.shape)
-			fac += 1
-			width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers)
+			ret = False
+			while not ret:
+				img,class_name = randomFrame(class_id)
+				# img = distorter.resizeRandom(img,0.2,0.5,bg.shape)
+				img = distorter.resizeRandom(img,resize_max-resize_span*fac,resize_max-resize_span*(fac-1),bg.shape)
+				fac += 1
+				fac = np.min([fac,chosen_classes_amount])
+				ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers)
 			composite = cv2.cvtColor(bg,cv2.COLOR_BGR2BGRA)
 			label = class_name+'-'+str(class_id)
 			write2CSV(train_csv,[filename,width,height,label,xmin,ymin,xmax,ymax])
@@ -77,6 +80,8 @@ def main(COMPOSITES,NAME):
 		composite = distorter.randomBlur(composite,2)
 		# composite = distorter.randomNoise(composite)
 		cv2.imwrite(filename,composite)
+		sys.stdout.write('\r'+str(x)+' of '+str(COMPOSITES)+' generated')
+		sys.stdout.flush()
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
