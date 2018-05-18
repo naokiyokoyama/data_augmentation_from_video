@@ -1,5 +1,9 @@
 *.JPG
+*.jpg
 *.MOV
-data/generated_images/
-*.pyc
 *.names
+*.csv
+*.pyc
+*.txt
+labels/
+generated_pictures/*
