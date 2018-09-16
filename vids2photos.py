@@ -24,4 +24,8 @@ def extract_from_video(video_path):
 	vid.release()
 
 video_path = sys.argv[1]
-extract_from_video(video_path)
+if len(video_path.split('.')) < 2:
+	for vid in glob.glob(video_path+"/*.MOV"):
+		extract_from_video(vid)
+else:
+	extract_from_video(video_path)
