@@ -7,6 +7,7 @@ import random as rand
 import sys
 
 HEADER = 'filename,width,height,class,xmin,ymin,xmax,ymax\n'
+NUM_CLASSES_IN_EACH_COMPOSITE = 4
 
 def random_extract(class_id):
 	possible_paths = glob.glob('data/videos/'+str(class_id)+'-*')
@@ -14,9 +15,8 @@ def random_extract(class_id):
 	png_dir = png_dirs[np.random.randint(len(png_dirs))]
 	img_path = rand.choice(glob.glob(png_dir+'/*'))
 	img = cv2.imread(img_path,cv2.IMREAD_UNCHANGED)
-	# print img
-	# cv2.imshow('',img);cv2.waitKey();cv2.destroyAllWindows()
 	class_name = png_dir.split('-')[-1].split('.')[0]
+	img = masker.rotateObject(img)
 	return img,class_name
 
 def write2CSV(csv,params):
@@ -28,59 +28,54 @@ def main(START_INDEX,END_INDEX,NAME):
 	train_csv.write(HEADER)
 	# How many different classes?
 	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*')])+1
-
 	print("Detected %s different classes" % num_class)
+
 	# Array of background images
-	bg_list = []
-	for img_path in glob.glob('data/bg/*.JPG'):
-		img = cv2.imread(img_path)
-		bg_list.append(img)
+	bg_list = [cv2.imread(i) for i in glob.glob('data/bg/*.JPG')]
+	
 	# Create RCNN annotations
 	directory = 'data/generated_pictures/annotations_'+NAME
 	if not os.path.exists(directory):
 		os.makedirs(directory)
+	
 	# Create composites
 	directory = 'data/generated_pictures/images_'+NAME
 	if not os.path.exists(directory):
 		os.makedirs(directory)
 		
-	# for each composite,
+	# For each composite,
 	for x in range(START_INDEX,END_INDEX+1):
-		# select background
-		bg_index = np.random.randint(len(bg_list))
-		bg = bg_list[bg_index]
-		# create empty background
-		layers = cv2.cvtColor(bg,cv2.COLOR_BGR2BGRA)
-		layers[:,:,:] = 0
-		chosen_classes_amount = 4
-		chosen_classes = rand.sample(range(num_class),chosen_classes_amount)
-		# for each class,
-		filename = directory+'/'+str(x)+'.JPG'
-		classes_list = list()
+		# Randomly select background
+		bg = rand.choice(bg_list)
+		
+		# Create empty background
+		layers = np.zeros((bg.shape[0],bg.shape[1],4), np.uint8)
 		rcnn_mask = layers.copy()
+		
+		# For each class,
+		chosen_classes = rand.sample(range(num_class),NUM_CLASSES_IN_EACH_COMPOSITE)
+		classes_list = list()
+
+		filename = directory+'/'+str(x)+'.JPG'
 		for class_id in chosen_classes:
 			ret = False
 			while not ret:
 				img,class_name = random_extract(class_id)
 				img = distorter.resize_by_dim_and_area(img,bg)
 				ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers,rcnn_mask,class_name,classes_list)
-				# ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers)
-			label = class_name+'-'+str(class_id)
-			write2CSV(train_csv,[filename,width,height,label,xmin,ymin,xmax,ymax])
-		composite = cv2.cvtColor(bg,cv2.COLOR_BGR2BGRA)
+				# ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers) # FOR DARKNET
+			# label = class_name+'-'+str(class_id) # FOR DARKNET
+			# write2CSV(train_csv,[filename,width,height,label,xmin,ymin,xmax,ymax]) # FOR DARKNET
 		for i in xrange(layers.shape[0]):
 			for j in xrange(layers.shape[1]):
 				if layers[i,j,3] > 0:
-					composite[i,j,:] = layers[i,j,:]
-		# composite[np.where((layers!=[0,0,0,0]).all(axis=2))] = layers[np.where((layers!=[0,0,0,0]).all(axis=2))]
-		# composite[:,:,3] = 255 # Empty
-		composite = cv2.cvtColor(composite,cv2.COLOR_BGRA2BGR)
+					composite[i,j,:] = layers[i,j,:3]
 		composite = distorter.randomGamma(composite,3.5)
 		composite = distorter.randomBlur(composite,2)
 		# composite = distorter.randomNoise(composite)
 		cv2.imwrite(filename,composite)
 		masker.generate_rcnn_masks(filename,rcnn_mask,classes_list)
-		sys.stdout.write('\r'+str(x)+' of '+str(END_INDEX-START_INDEX+1)+' generated')
+		sys.stdout.write('\r'+str(x-START_INDEX)+' of '+str(END_INDEX-START_INDEX+1)+' generated')
 		sys.stdout.flush()
 
 if __name__ == "__main__":

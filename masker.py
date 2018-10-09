@@ -2,14 +2,6 @@ import cv2
 import numpy as np
 import time
 
-def bgsegmMask(bg,img):
-	fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
-	fgmask = fgbg.apply(bg)
-	# fgmask = fgbg.apply(bg)
-	# fgmask = fgbg.apply(bg)
-	fgmask = fgbg.apply(img)
-	return fgmask
-
 def cropBox(img): # Input: Image with only the object
 	mask = img[:,:,3]
 	x,y,w,h = cv2.boundingRect(mask)
@@ -68,33 +60,45 @@ def extractObject(bg,img):
 	img[mask==0] = (0,0,0,0)
 	img = cropBox(img)
 	return img
-def extractObjectold(bg,img):
-	img = cv2.resize(img,(960,540))
-	mask = bgsegmMask(bg,img)
-	mask = inflateErode(mask,40)
-	mask = erodeInflateSmart(mask,20)
-	mask = contourMask(mask)
-	img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
-	img[mask==0] = (0,0,0,0)
-	img = cropBox(img)
-	return img
+
+def rotateObject(img):
+	height = img.shape[0]
+	width = img.shape[1]
+	hypotenuse = int(np.ceil(sqrt(height**2+width**2)))
+	blank_image = np.zeros((hypotenuse,hypotenuse,4), np.uint8)
+	x_offset = (hypotenuse-width)/2
+	y_offset = (hypotenuse-height)/2
+	blank_image[y_offset:y_offset+height,x_offset:x_offset+width]=img
+	rotation_degrees = np.random.randint(90)*4
+	M = cv2.getRotationMatrix2D((hypotenuse/2,hypotenuse/2),rotation_degrees,1)
+	dst = cv2.warpAffine(blank_image,M,(hypotenuse,hypotenuse))
+	dst = cropBox(dst)
+	return dst
 
 def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
 	timeup = time.time()+10
 	while 1:
-		single_layer = mask.copy()
-		single_layer[:,:,:] = 0
+		single_layer = np.zeros(mask.shape, np.uint8)
 		ymin = np.random.randint(single_layer.shape[0]-img.shape[0]+1)
-		ymax = ymin+img.shape[0]
 		xmin = np.random.randint(single_layer.shape[1]-img.shape[1]+1)
+		ymax = ymin+img.shape[0]
 		xmax = xmin+img.shape[1]
-		single_layer[ymin:ymax,xmin:xmax] = img
+		
+		for i in xrange(ymin,ymax):
+			for j in xrange(xmin,xmax):
+				if img[i,j,3] != 0:
+					single_layer[i,j] = img[i,j]
+
 		# Use the single layer as a mask against the final layer
-		# if the result has any non pure green pixels, try again
+		# if the result has too many unmasked pixels, try again
 		mask_test = mask.copy()
-		mask_test[np.where((single_layer==[0,0,0,0]).all(axis=2))] = [0,0,0,0]
-		original_pixels = 0
-		occluded_pixels = 0
+		for i in xrange(mask.shape[0]):
+			for j in xrange(mask.shape[1]):
+				if sum(single_layer[i,j]) == 0:
+					mask_test[i,j] = single_layer[i,j]
+
+		original_pixels = 0.0
+		occluded_pixels = 0.0
 		for i in xrange(mask.shape[0]):
 			for j in xrange(mask.shape[1]):
 				if single_layer[i,j,3] != 0:
@@ -104,7 +108,10 @@ def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
 		occlusion_percentage = occluded_pixels/original_pixels
 
 		if occlusion_percentage<0.5:
-			mask[ymin:ymax,xmin:xmax] = img
+			for i in xrange(ymin,ymax):
+				for j in xrange(xmin,xmax):
+					if img[i,j,3] != 0:
+						mask[i,j] = img[i,j]
 			if rcnn_mask is not None:
 				mask_pixel_value = max(np.ndarray.flatten(rcnn_mask))+1
 				rcnn_mask[np.where((single_layer!=[0,0,0,0]).all(axis=2))] = [0,0,0,mask_pixel_value]
@@ -134,14 +141,3 @@ def generate_rcnn_masks(image_path,rcnn_mask,classes_list):
 		mask_path = '-'.join(mask_path)
 		mask_path = mask_path.replace('images_','annotations_')
 		cv2.imwrite(mask_path,mask)
-
-
-
-
-
-
-
-
-
-
-
