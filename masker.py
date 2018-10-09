@@ -88,27 +88,23 @@ def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
 		ymax = ymin+img.shape[0]
 		xmin = np.random.randint(single_layer.shape[1]-img.shape[1]+1)
 		xmax = xmin+img.shape[1]
-
-		for i in xrange(img.shape[0]):
-			for j in xrange(img.shape[1]):
-				if img[i,j,3] > 0:
-					single_layer[i+ymin,j+xmin] = img[i,j]
-
-		# single_layer[ymin:ymax,xmin:xmax] = img
+		single_layer[ymin:ymax,xmin:xmax] = img
+		# Use the single layer as a mask against the final layer
+		# if the result has any non pure green pixels, try again
 		mask_test = mask.copy()
 		mask_test[np.where((single_layer==[0,0,0,0]).all(axis=2))] = [0,0,0,0]
-		object_pixel_amount = np.ndarray.flatten(single_layer[:,:,3])
-		object_pixel_amount = len(object_pixel_amount)-object_pixel_amount.tolist().count(0)
-		occluded_pixel_amount = np.ndarray.flatten(mask_test[:,:,3])
-		occluded_pixel_amount = len(occluded_pixel_amount)-occluded_pixel_amount.tolist().count(0)
-		occlusion_percentage = occluded_pixel_amount/object_pixel_amount
+		original_pixels = 0
+		occluded_pixels = 0
+		for i in xrange(mask.shape[0]):
+			for j in xrange(mask.shape[1]):
+				if single_layer[i,j,3] != 0:
+					original_pixels += 1
+				if mask_test[i,j,3] != 0:
+					occluded_pixels += 1	
+		occlusion_percentage = occluded_pixels/original_pixels
 
 		if occlusion_percentage<0.5:
-			# mask[ymin:ymax,xmin:xmax] = img
-			for i in xrange(img.shape[0]):
-				for j in xrange(img.shape[1]):
-					if img[i,j,3] > 0:
-						mask[i+ymin,j+xmin] = img[i,j]
+			mask[ymin:ymax,xmin:xmax] = img
 			if rcnn_mask is not None:
 				mask_pixel_value = max(np.ndarray.flatten(rcnn_mask))+1
 				rcnn_mask[np.where((single_layer!=[0,0,0,0]).all(axis=2))] = [0,0,0,mask_pixel_value]

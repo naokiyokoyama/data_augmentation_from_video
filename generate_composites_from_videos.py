@@ -23,14 +23,12 @@ def write2CSV(csv,params):
 	newline = ",".join(str(x) for x in params)
 	csv.write(newline+'\n')
 
-def main(COMPOSITES,NAME):
+def main(START_INDEX,END_INDEX,NAME):
 	train_csv = open(NAME+'_train.csv','w')
 	train_csv.write(HEADER)
 	# How many different classes?
-	num_class = 0
-	for vid_path in glob.glob('data/videos/*.MOV'):
-		if len(vid_path.split('-')) == 2:
-			num_class += 1
+	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*')])+1
+
 	print("Detected %s different classes" % num_class)
 	# Array of background images
 	bg_list = []
@@ -47,7 +45,7 @@ def main(COMPOSITES,NAME):
 		os.makedirs(directory)
 		
 	# for each composite,
-	for x in range(0,COMPOSITES):
+	for x in range(START_INDEX,END_INDEX+1):
 		# select background
 		bg_index = np.random.randint(len(bg_list))
 		bg = bg_list[bg_index]
@@ -82,15 +80,17 @@ def main(COMPOSITES,NAME):
 		# composite = distorter.randomNoise(composite)
 		cv2.imwrite(filename,composite)
 		masker.generate_rcnn_masks(filename,rcnn_mask,classes_list)
-		sys.stdout.write('\r'+str(x)+' of '+str(COMPOSITES)+' generated')
+		sys.stdout.write('\r'+str(x)+' of '+str(END_INDEX-START_INDEX+1)+' generated')
 		sys.stdout.flush()
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
 		print "Not enough args given!"
-		print "Arg1: number of images to generate"
-		print "Arg2: desired name of training set"
+		print "Arg1: Starting image index"
+		print "Arg2: Ending image index"
+		print "Arg3: Desired name of training set"
 		sys.exit()
-	COMPOSITES = int(sys.argv[1])
-	NAME = sys.argv[2]
-	main(COMPOSITES,NAME)
+	START_INDEX = int(sys.argv[1])
+	END_INDEX = int(sys.argv[2])
+	NAME = sys.argv[3]
+	main(START_INDEX,END_INDEX,NAME)
