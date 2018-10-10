@@ -75,7 +75,7 @@ def rotateObject(img):
 	dst = cropBox(dst)
 	return dst
 
-def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
+def createComposite(img,mask,rcnn_mask,class_name=None,classes_list=None):
 	timeup = time.time()+10
 	while 1:
 		single_layer = np.zeros(mask.shape, np.uint8)
@@ -89,25 +89,34 @@ def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
 				if img[i,j,3] != 0:
 					single_layer[i,j] = img[i,j]
 
-		# Use the single layer as a mask against the final layer
-		# if the result has too many unmasked pixels, try again
-		mask_test = mask.copy()
-		for i in xrange(mask.shape[0]):
-			for j in xrange(mask.shape[1]):
-				if sum(single_layer[i,j]) == 0:
-					mask_test[i,j] = single_layer[i,j]
+		''' single_layer is now a black image with the entire object placed
+			within in it at a random location. It's then used as a mask 
+			against the segmentation mask we have made so far. If any of the objects 
+			in the segmentation mask are occluded too much, try again.'''
+		mask_test = rcnn_mask.copy()
+		for i in xrange(mask_test.shape[0]):
+			for j in xrange(mask_test.shape[1]):
+				if sum(single_layer[i,j]) == 0: # all the channels for the pixel are 0
+					mask_test[i,j] = [0,0,0,0]
+		# Alternative code:
+		# mask_test = cv2.bitwise_and(rcnn_mask,rcnn_mask,mask=single_layer[:,:,3])
+		
+		# Survey the damage done to the so-far-accumulated mask!
+		pixel_counts = list()
+		for i in [mask_test,rcnn_mask]:
+			_,_,_,alpha = cv2.split(i)
+			# alpha = i[:,:,3]
+			flat_alpha = list(np.ndarray.flatten(alpha))
+			num_of_objects = max(flat_alpha)
+			pixel_counts.append([flat_alpha.count(j+1) for j in xrange(num_of_objects)])
+		
+		# If an entire object was covered, try again
+		if len(pixel_counts[0]) != len(pixel_counts[1]):
+			continue
+		
+		non_occlusion_percentages = [float(pixel_counts[0][i])/float(pixel_counts[1][i]) for i in xrange(num_of_objects)]
 
-		original_pixels = 0.0
-		occluded_pixels = 0.0
-		for i in xrange(mask.shape[0]):
-			for j in xrange(mask.shape[1]):
-				if single_layer[i,j,3] != 0:
-					original_pixels += 1
-				if mask_test[i,j,3] != 0:
-					occluded_pixels += 1	
-		occlusion_percentage = occluded_pixels/original_pixels
-
-		if occlusion_percentage<0.5:
+		if min(non_occlusion_percentages)>0.5:
 			for i in xrange(ymin,ymax):
 				for j in xrange(xmin,xmax):
 					if img[i,j,3] != 0:
@@ -121,6 +130,7 @@ def createComposite(img,mask,rcnn_mask=None,class_name=None,classes_list=None):
 		if time.time()>timeup:
 			ret = False
 			return ret,0,0,0,0,0,0
+
 	width = mask.shape[1]
 	height = mask.shape[0]
 	ret = True
