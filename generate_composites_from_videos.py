@@ -23,7 +23,7 @@ def write2CSV(csv,params):
 	newline = ",".join(str(x) for x in params)
 	csv.write(newline+'\n')
 
-def main(START_INDEX,END_INDEX,NAME):
+def main(START_INDEX,END_INDEX,NAME,printing=True):
 	train_csv = open(NAME+'_train.csv','w')
 	train_csv.write(HEADER)
 	# How many different classes?
