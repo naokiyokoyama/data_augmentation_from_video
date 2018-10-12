@@ -23,30 +23,28 @@ def write2CSV(csv,params):
 	newline = ",".join(str(x) for x in params)
 	csv.write(newline+'\n')
 
-def main(START_INDEX,END_INDEX,NAME,printing=True):
+def main(START_INDEX,END_INDEX,NAME,multithread=False):
 	train_csv = open(NAME+'_train.csv','w')
 	train_csv.write(HEADER)
 	# How many different classes?
-	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*')])+1
-	print("Detected %s different classes" % num_class)
-
-	# Array of background images
-	bg_list = [cv2.imread(i) for i in glob.glob('data/bg/*.JPG')]
-	
-	# Create RCNN annotations
-	directory = 'data/generated_pictures/annotations_'+NAME
-	if not os.path.exists(directory):
-		os.makedirs(directory)
-	
-	# Create composites
-	directory = 'data/generated_pictures/images_'+NAME
-	if not os.path.exists(directory):
-		os.makedirs(directory)
+	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*') if os.path.isdir(vid_path)])+1
+	if not multithread:
+		print("Detected %s different classes" % num_class)
+		# Create RCNN annotations
+		directory = 'data/generated_pictures/annotations_'+NAME
+		if not os.path.exists(directory):
+			os.makedirs(directory)
+		# Create composites
+		directory = 'data/generated_pictures/images_'+NAME
+		if not os.path.exists(directory):
+			os.makedirs(directory)
 		
 	# For each composite,
 	for x in range(START_INDEX,END_INDEX+1):
 		# Randomly select background
-		bg = rand.choice(bg_list)
+		bg_path = rand.choice(glob.glob('data/bg/*.JPG'))
+		bg = cv2.imread(bg_path)
+		bg = cv2.resize(bg,(750,500))
 		
 		# Create empty background
 		layers = np.zeros((bg.shape[0],bg.shape[1],4), np.uint8)
@@ -56,7 +54,7 @@ def main(START_INDEX,END_INDEX,NAME,printing=True):
 		chosen_classes = rand.sample(range(num_class),NUM_CLASSES_IN_EACH_COMPOSITE)
 		classes_list = list()
 
-		filename = directory+'/'+str(x)+'.JPG'
+		filename = 'data/generated_pictures/images_'+NAME+'/'+str(x)+'.JPG'
 		for class_id in chosen_classes:
 			ret = False
 			while not ret:
@@ -66,6 +64,7 @@ def main(START_INDEX,END_INDEX,NAME,printing=True):
 				# ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers) # FOR DARKNET
 			# label = class_name+'-'+str(class_id) # FOR DARKNET
 			# write2CSV(train_csv,[filename,width,height,label,xmin,ymin,xmax,ymax]) # FOR DARKNET
+		composite = bg.copy()
 		for i in xrange(layers.shape[0]):
 			for j in xrange(layers.shape[1]):
 				if layers[i,j,3] > 0:
@@ -75,8 +74,9 @@ def main(START_INDEX,END_INDEX,NAME,printing=True):
 		# composite = distorter.randomNoise(composite)
 		cv2.imwrite(filename,composite)
 		masker.generate_rcnn_masks(filename,rcnn_mask,classes_list)
-		sys.stdout.write('\r'+str(x-START_INDEX)+' of '+str(END_INDEX-START_INDEX+1)+' generated')
-		sys.stdout.flush()
+		if not multithread:
+			sys.stdout.write('\r'+str(x-START_INDEX)+' of '+str(END_INDEX-START_INDEX+1)+' generated')
+			sys.stdout.flush()
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:

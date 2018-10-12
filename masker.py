@@ -64,7 +64,7 @@ def extractObject(bg,img):
 def rotateObject(img):
 	height = img.shape[0]
 	width = img.shape[1]
-	hypotenuse = int(np.ceil(sqrt(height**2+width**2)))
+	hypotenuse = int(np.ceil(np.sqrt(height**2+width**2)))
 	blank_image = np.zeros((hypotenuse,hypotenuse,4), np.uint8)
 	x_offset = (hypotenuse-width)/2
 	y_offset = (hypotenuse-height)/2
@@ -86,41 +86,34 @@ def createComposite(img,mask,rcnn_mask,class_name=None,classes_list=None):
 		
 		for i in xrange(ymin,ymax):
 			for j in xrange(xmin,xmax):
-				if img[i,j,3] != 0:
-					single_layer[i,j] = img[i,j]
+				if img[i-ymin,j-xmin,3] != 0:
+					single_layer[i,j] = img[i-ymin,j-xmin]
 
 		''' single_layer is now a black image with the entire object placed
 			within in it at a random location. It's then used as a mask 
 			against the segmentation mask we have made so far. If any of the objects 
 			in the segmentation mask are occluded too much, try again.'''
-		mask_test = rcnn_mask.copy()
-		for i in xrange(mask_test.shape[0]):
-			for j in xrange(mask_test.shape[1]):
-				if sum(single_layer[i,j]) == 0: # all the channels for the pixel are 0
-					mask_test[i,j] = [0,0,0,0]
-		# Alternative code:
-		# mask_test = cv2.bitwise_and(rcnn_mask,rcnn_mask,mask=single_layer[:,:,3])
+		mask_test = cv2.bitwise_and(rcnn_mask,rcnn_mask,mask=single_layer[:,:,3])
 		
 		# Survey the damage done to the so-far-accumulated mask!
-		pixel_counts = list()
-		for i in [mask_test,rcnn_mask]:
-			_,_,_,alpha = cv2.split(i)
-			# alpha = i[:,:,3]
-			flat_alpha = list(np.ndarray.flatten(alpha))
-			num_of_objects = max(flat_alpha)
-			pixel_counts.append([flat_alpha.count(j+1) for j in xrange(num_of_objects)])
-		
-		# If an entire object was covered, try again
-		if len(pixel_counts[0]) != len(pixel_counts[1]):
-			continue
-		
-		non_occlusion_percentages = [float(pixel_counts[0][i])/float(pixel_counts[1][i]) for i in xrange(num_of_objects)]
 
-		if min(non_occlusion_percentages)>0.5:
+		flat_alpha = list(np.ndarray.flatten(rcnn_mask[:,:,3]))
+		num_of_objects = max(flat_alpha)
+
+		if num_of_objects > 0:
+			original_pixel_counts = [flat_alpha.count(j+1) for j in xrange(num_of_objects)]
+			flat_alpha_test = list(np.ndarray.flatten(mask_test[:,:,3]))
+			test_pixel_counts = [flat_alpha_test.count(j+1) for j in xrange(num_of_objects)]
+			occlusion_percentages = [float(test_pixel_counts[i])/float(original_pixel_counts[i]) for i in xrange(num_of_objects)]
+			try_again = max(occlusion_percentages) > 0.40
+		else:
+			try_again = False
+
+		if not try_again:
 			for i in xrange(ymin,ymax):
 				for j in xrange(xmin,xmax):
-					if img[i,j,3] != 0:
-						mask[i,j] = img[i,j]
+					if img[i-ymin,j-xmin,3] != 0:
+						mask[i,j] = img[i-ymin,j-xmin]
 			if rcnn_mask is not None:
 				mask_pixel_value = max(np.ndarray.flatten(rcnn_mask))+1
 				rcnn_mask[np.where((single_layer!=[0,0,0,0]).all(axis=2))] = [0,0,0,mask_pixel_value]
