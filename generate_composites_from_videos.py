@@ -19,13 +19,7 @@ def random_extract(class_id):
 	img = masker.rotateObject(img)
 	return img,class_name
 
-def write2CSV(csv,params):
-	newline = ",".join(str(x) for x in params)
-	csv.write(newline+'\n')
-
 def main(START_INDEX,END_INDEX,NAME,multithread=False):
-	train_csv = open(NAME+'_train.csv','w')
-	train_csv.write(HEADER)
 	# How many different classes?
 	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*') if os.path.isdir(vid_path)])+1
 	if not multithread:
@@ -61,9 +55,6 @@ def main(START_INDEX,END_INDEX,NAME,multithread=False):
 				img,class_name = random_extract(class_id)
 				img = distorter.resize_by_dim_and_area(img,bg)
 				ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers,rcnn_mask,class_name,classes_list)
-				# ret,width,height,xmin,ymin,xmax,ymax = masker.createComposite(img,layers) # FOR DARKNET
-			# label = class_name+'-'+str(class_id) # FOR DARKNET
-			# write2CSV(train_csv,[filename,width,height,label,xmin,ymin,xmax,ymax]) # FOR DARKNET
 		composite = bg.copy()
 		for i in xrange(layers.shape[0]):
 			for j in xrange(layers.shape[1]):
