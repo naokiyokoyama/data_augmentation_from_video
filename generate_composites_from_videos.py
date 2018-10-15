@@ -9,8 +9,11 @@ import sys
 HEADER = 'filename,width,height,class,xmin,ymin,xmax,ymax\n'
 NUM_CLASSES_IN_EACH_COMPOSITE = 4
 
+# png_dirs = 'data/videos/'
+pngs_dir = '/Volumes/TOSHIBA/wrs/completed/'
+
 def random_extract(class_id):
-	possible_paths = glob.glob('data/videos/'+str(class_id)+'-*')
+	possible_paths = glob.glob(pngs_dir+str(class_id)+'-*')
 	png_dirs = [i for i in possible_paths if '.' not in i]
 	png_dir = png_dirs[np.random.randint(len(png_dirs))]
 	img_path = rand.choice(glob.glob(png_dir+'/*'))
@@ -21,7 +24,7 @@ def random_extract(class_id):
 
 def main(START_INDEX,END_INDEX,NAME,multithread=False):
 	# How many different classes?
-	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob('data/videos/*') if os.path.isdir(vid_path)])+1
+	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob(pngs_dir+'*') if os.path.isdir(vid_path)])+1
 	if not multithread:
 		print("Detected %s different classes" % num_class)
 		# Create RCNN annotations
