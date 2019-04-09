@@ -4,7 +4,7 @@ Generate several artifical composites with pixelwise annotations for each object
 
 ## Step 1: Background scenery photos
 
-Add several scenery photos to the `data/bg` directory. There is a python script in there that will resize them to an appropriate size once you have finished putting all your images in there.
+Add several scenery photos to the `data/bg` directory. There is a python script in there that will resize them to an appropriate size once you have finished putting all your images in there. They must end in either `.JPG` or `.jpg`.
 
 ## Step 2: Recording videos
 
