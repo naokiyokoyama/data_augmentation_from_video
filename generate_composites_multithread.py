@@ -4,7 +4,7 @@ import numpy as np
 import glob
 import cv2
 from multiprocessing import Process
-from generate_composites_from_videos import main as generate_composites
+from utils.generate_composites_from_videos import main as generate_composites
 
 pngs_dir = '/Volumes/TOSHIBA/wrs/completed/'
 # pngs_dir = 'data/videos/'

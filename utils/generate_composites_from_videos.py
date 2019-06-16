@@ -22,7 +22,7 @@ def random_extract(class_id):
 	img = masker.rotateObject(img)
 	return img,class_name
 
-def main(START_INDEX,END_INDEX,NAME,multithread=False):
+def main(START_INDEX, END_INDEX, NAME, multithread=False):
 	# How many different classes?
 	num_class = max([int(vid_path.split('/')[-1].split('-')[0]) for vid_path in glob.glob(pngs_dir+'*') if os.path.isdir(vid_path)])+1
 	if not multithread:

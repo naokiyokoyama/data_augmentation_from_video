@@ -1,4 +1,0 @@
-classes = 19
-names = /home/naoki/data_augmentation_from_video/river_lighting/river_lighting.names
-backup = /home/naoki/data_augmentation_from_video/river_lighting/backup/river_lighting
-train = /home/naoki/data_augmentation_from_video/river_lighting/train.txt

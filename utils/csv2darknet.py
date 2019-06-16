@@ -4,7 +4,7 @@ import os
 import numpy as np
 import subprocess
 
-def main(NAME,IMAGES_DIR,TRAIN_CSV,DARKNET_DIR):
+def main(NAME, IMAGES_DIR, TRAIN_CSV, DARKNET_DIR):
 	# Create output directory, and label+backup sub-directory
 	this_path = os.path.dirname(os.path.realpath(__file__))
 	directory = NAME+'/'
