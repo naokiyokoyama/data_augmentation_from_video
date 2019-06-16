@@ -75,7 +75,7 @@ def rotateObject(img):
 	dst = cropBox(dst)
 	return dst
 
-def createComposite(img,mask,rcnn_mask,class_name=None,classes_list=None):
+def createComposite(img, mask, rcnn_mask, class_name=None, classes_list=None):
 	timeup = time.time()+10
 	while 1:
 		single_layer = np.zeros(mask.shape, np.uint8)
@@ -129,8 +129,8 @@ def createComposite(img,mask,rcnn_mask,class_name=None,classes_list=None):
 	ret = True
 	return ret,width,height,xmin,ymin,xmax,ymax
 
-def generate_rcnn_masks(image_path,rcnn_mask,classes_list):
-	_,_,_,alpha = cv2.split(rcnn_mask)
+def generate_rcnn_masks(image_path, rcnn_mask, classes_list):
+	_, _, _, alpha = cv2.split(rcnn_mask)
 	mask_pixel_value = max(np.ndarray.flatten(alpha))
 	for x in xrange(mask_pixel_value):
 		mask = alpha.copy()

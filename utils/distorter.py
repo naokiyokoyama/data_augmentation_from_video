@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import math
 
-def randomGamma(image,maxDistort):
+def randomGamma(image, maxDistort):
 	gamma = 1 + (maxDistort-1)*np.random.random()
 	rand = np.random.random()
 	if rand > 0.5:
@@ -23,12 +23,12 @@ def randomNoise(image):
 	noisy = image + gauss
 	return noisy
 
-def randomBlur(img,maxBlur):
+def randomBlur(img, maxBlur):
 	blur_kernel = 1+int(np.random.random()*maxBlur)
 	img = cv2.blur(img,(blur_kernel,blur_kernel))
 	return img
 
-def resize_by_dim_and_area(object_img,background_img,upper_dim_bound=0.50,lower_dim_bound=0.10,upper_area_bound=0.20,lower_area_bound=0.08):
+def resize_by_dim_and_area(object_img, background_img, upper_dim_bound=0.50, lower_dim_bound=0.05, upper_area_bound=0.20, lower_area_bound=0.05):
 	# 1. First, constrain using larger dimension
 	# 2. If it's still too large, constrain by area
 	object_height,object_width = object_img.shape[:2]
@@ -61,7 +61,7 @@ def resize_by_dim_and_area(object_img,background_img,upper_dim_bound=0.50,lower_
 	resized = cv2.merge((b,g,r,a))
 	return resized
 
-def resizeRandom(img,lower,upper,shp):
+def resizeRandom(img, lower, upper, shp):
 	span = upper-lower
 	randSize = lower+np.random.random()*span
 	bg_h = shp[0]
