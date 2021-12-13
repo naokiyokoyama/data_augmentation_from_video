@@ -140,8 +140,8 @@ def attempt_composite(
             for obj_idx in range(num_objects):
                 existing_obj_alpha = np.zeros_like(segmentation_mask)
                 existing_obj_alpha[segmentation_mask == obj_idx + 1] = 1.0
-                occlusion_area = sum(np.clip(existing_obj_alpha * candidate_alpha_f))
-                occlusion_percent = occlusion_area / (mask_height * mask_width)
+                occlusion_area = np.sum(existing_obj_alpha * candidate_alpha_f)
+                occlusion_percent = occlusion_area / np.sum(existing_obj_alpha)
                 if occlusion_percent > occlusion_thresh:
                     failed = True
                     break
