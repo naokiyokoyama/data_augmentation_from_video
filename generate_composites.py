@@ -45,7 +45,7 @@ class CompositeGenerator:
         self,
         objects_dir,
         background_dir,
-        num_class_per_composite,
+        num_obj_per_composite,
     ):
         self.objects_dir = objects_dir
         self.class_id_to_paths = defaultdict(list)
@@ -59,7 +59,7 @@ class CompositeGenerator:
         num_classes = len(self.class_id_to_paths)
         print(f"Detected {num_classes} classes.")
 
-        self.num_class_per_composite = num_class_per_composite
+        self.num_obj_per_composite = num_obj_per_composite
 
         # Find all candidate image or video files for select background imagery from
         self.background_sources = gather_files(
@@ -117,7 +117,7 @@ class CompositeGenerator:
         # Randomly select object classes that will appear in composite
         chosen_class_ids = [
             random.choice(list(self.class_id_to_paths.keys()))
-            for _ in range(self.num_class_per_composite)
+            for _ in range(self.num_obj_per_composite)
         ]
         for num_objects, class_id in enumerate(chosen_class_ids):
             ret = False
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     cg = CompositeGenerator(
         objects_dir=args.objects_dir,
         background_dir=args.background_dir,
-        num_class_per_composite=4,
+        num_obj_per_composite=4,
     )
 
     if not osp.isdir(args.out_composites_dir):
