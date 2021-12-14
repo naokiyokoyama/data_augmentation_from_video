@@ -101,9 +101,12 @@ class CompositeGenerator:
         random_vid_or_img = random.choice(self.background_sources)
         if is_file_type(random_vid_or_img, VIDEO_EXTENSIONS):
             bg_img = select_random_video_frame(random_vid_or_img)
-        else:
-            assert is_file_type(random_vid_or_img, IMAGE_EXTENSIONS)
+        elif is_file_type(random_vid_or_img, IMAGE_EXTENSIONS):
             bg_img = random_vid_or_img
+        else:
+            raise RuntimeError(
+                f"{random_vid_or_img} is neither a video or an image."
+            )
         bg_height, bg_width = bg_img.shape[:2]
 
         mask = np.zeros([bg_height, bg_width, 4], dtype=np.uint8)  # BGRA foreground
