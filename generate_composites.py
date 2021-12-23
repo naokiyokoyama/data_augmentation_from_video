@@ -1,4 +1,3 @@
-import argparse
 from collections import defaultdict
 import cv2
 import distort
@@ -8,7 +7,6 @@ import numpy as np
 import os
 import os.path as osp
 import random
-import tqdm
 
 NUM_CLASSES_IN_EACH_COMPOSITE = 4
 IMAGE_EXTENSIONS = ["jpg", "jpeg", "png"]
@@ -46,17 +44,23 @@ class CompositeGenerator:
         objects_dir,
         background_dir,
         num_obj_per_composite,
+        existing_data=None
     ):
         self.objects_dir = objects_dir
         self.class_id_to_paths = defaultdict(list)
         self.class_id_to_name = {}
-        self.annotation_id = 0
-        self.image_id = 0
-        self.images = []
-        self.annotations = []
 
-        assert self.get_object_classes()
+        if existing_data is not None:
+            print("Loading data from existing json...")
+            self.images = existing_data["images"]
+            self.annotations = existing_data["annotations"]
+        else:
+            self.images = []
+            self.annotations = []
+
+        self.get_object_classes()
         num_classes = len(self.class_id_to_paths)
+        assert num_classes > 0, "No object folders were found!"
         print(f"Detected {num_classes} classes.")
 
         self.num_obj_per_composite = num_obj_per_composite
@@ -67,6 +71,14 @@ class CompositeGenerator:
         )
         assert len(self.background_sources) > 0, "No background sources found!"
 
+    @property
+    def image_id(self):
+        return len(self.images)
+
+    @property
+    def annotation_id(self):
+        return len(self.annotations)
+
     def get_object_classes(self):
         object_dirs = [
             d for d in glob.glob(osp.join(self.objects_dir, "*")) if osp.isdir(d)
@@ -75,10 +87,11 @@ class CompositeGenerator:
         # Must have following format: {class_id}_{class_name}
         for d in object_dirs:
             basename = osp.basename(d)
-            class_id, class_name = basename.split("_")[0], basename.split("_")[-1]
+            class_id = basename.split("_")[0]
+            class_name = basename[len(class_id + "_"):]
             if "_" not in basename or not class_id.isdigit():
-                print(d, "is not named correctly!")
-                return False
+                print(d, "is not named correctly; skipping")
+                continue
 
             obj_img_paths = []
             for root, _, files in os.walk(d):
@@ -94,15 +107,13 @@ class CompositeGenerator:
             self.class_id_to_paths[class_id].extend(obj_img_paths)
             self.class_id_to_name[class_id] = class_name
 
-        return True
-
     def generate_composite(self, output_path):
         # Randomly select a background source
         random_vid_or_img = random.choice(self.background_sources)
         if is_file_type(random_vid_or_img, VIDEO_EXTENSIONS):
             bg_img = select_random_video_frame(random_vid_or_img)
         elif is_file_type(random_vid_or_img, IMAGE_EXTENSIONS):
-            bg_img = random_vid_or_img
+            bg_img = cv2.imread(random_vid_or_img)
         else:
             raise RuntimeError(
                 f"{random_vid_or_img} is neither a video or an image."
@@ -149,7 +160,6 @@ class CompositeGenerator:
                 "width": bg_width,
             }
         )
-        self.image_id += 1
 
         return composite
 
@@ -172,7 +182,6 @@ class CompositeGenerator:
                     "iscrowd": 0,
                 }
             )
-            self.annotation_id += 1
 
     def compile_coco_json(self, output_path):
         coco_dict = {
@@ -185,33 +194,3 @@ class CompositeGenerator:
         }
         with open(output_path, "w") as f:
             json.dump(coco_dict, f, indent=4)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generates dataset.")
-    parser.add_argument("objects_dir")
-    parser.add_argument("background_dir")
-    parser.add_argument("out_json_path")
-    parser.add_argument("out_composites_dir")
-    parser.add_argument("-s", "--seed", type=int, default=0)
-    args = parser.parse_args()
-
-    np.random.seed(args.seed)
-    random.seed(args.seed)
-
-    cg = CompositeGenerator(
-        objects_dir=args.objects_dir,
-        background_dir=args.background_dir,
-        num_obj_per_composite=4,
-    )
-
-    if not osp.isdir(args.out_composites_dir):
-        os.mkdir(args.out_composites_dir)
-
-    try:
-        for idx in tqdm.trange(40):
-            out_path = osp.join(args.out_composites_dir, f"{idx:06}.png")
-            composite = cg.generate_composite(out_path)
-            cv2.imwrite(out_path, composite)
-    finally:
-        cg.compile_coco_json(args.out_json_path)
