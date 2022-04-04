@@ -1,12 +1,13 @@
-from collections import defaultdict
-import cv2
-import distort
 import glob
 import json
-import numpy as np
 import os
 import os.path as osp
 import random
+from collections import defaultdict
+
+import cv2
+import distort
+import numpy as np
 
 NUM_CLASSES_IN_EACH_COMPOSITE = 4
 IMAGE_EXTENSIONS = ["jpg", "jpeg", "png"]
@@ -14,11 +15,20 @@ VIDEO_EXTENSIONS = ["mp4", "mov"]
 
 
 def is_file_type(filepath, extensions):
+    """Determines if the given filepath has an extension in the given list of
+    extensions"""
     extension = filepath.split(".")[-1]
     return extension.lower() in extensions
 
 
 def gather_files(directory, allowed_extensions):
+    """
+    Returns a list of files in the given dir and all its sub-dirs that have an extension
+    in the given list of allowed extensions
+    :param directory: path to directory to os.walk through
+    :param allowed_extensions: list of extensions
+    :return: list of paths to files with an allowed extension
+    """
     gathered_files = []
     for root, _, files in os.walk(directory):
         for f in files:
@@ -29,6 +39,7 @@ def gather_files(directory, allowed_extensions):
 
 
 def select_random_video_frame(video_path):
+    """Returns a random frame (np.uint8) from the video located at video_path"""
     vid = cv2.VideoCapture(video_path)
     total_num_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
     random_frame_id = random.randint(0, total_num_frames - 1)
@@ -40,11 +51,7 @@ def select_random_video_frame(video_path):
 
 class CompositeGenerator:
     def __init__(
-        self,
-        objects_dir,
-        background_dir,
-        num_obj_per_composite,
-        existing_data=None
+        self, objects_dir, background_dir, num_obj_per_composite, existing_data=None
     ):
         self.objects_dir = objects_dir
         self.class_id_to_paths = defaultdict(list)
@@ -88,9 +95,9 @@ class CompositeGenerator:
         for d in object_dirs:
             basename = osp.basename(d)
             class_id = basename.split("_")[0]
-            class_name = basename[len(class_id + "_"):]
+            class_name = basename[len(class_id + "_") :]
             if "_" not in basename or not class_id.isdigit():
-                print(d, "is not named correctly; skipping")
+                print(d, "is not named correctly; ignoring it.")
                 continue
 
             obj_img_paths = []
@@ -115,12 +122,9 @@ class CompositeGenerator:
         elif is_file_type(random_vid_or_img, IMAGE_EXTENSIONS):
             bg_img = cv2.imread(random_vid_or_img)
         else:
-            raise RuntimeError(
-                f"{random_vid_or_img} is neither a video or an image."
-            )
+            raise RuntimeError(f"{random_vid_or_img} is neither a video or an image.")
         bg_height, bg_width = bg_img.shape[:2]
 
-        mask = np.zeros([bg_height, bg_width, 4], dtype=np.uint8)  # BGRA foreground
         segmentation_mask = np.zeros(
             [bg_height, bg_width], dtype=np.float32  # pixel class ids
         )
@@ -130,24 +134,26 @@ class CompositeGenerator:
             random.choice(list(self.class_id_to_paths.keys()))
             for _ in range(self.num_obj_per_composite)
         ]
+        masks = []
         for num_objects, class_id in enumerate(chosen_class_ids):
             ret = False
             while not ret:
                 random_obj_path = random.choice(self.class_id_to_paths[class_id])
                 obj_img = cv2.imread(random_obj_path, cv2.IMREAD_UNCHANGED)
                 obj_img = distort.rotate_object(obj_img)
+                obj_img = distort.random_flip(obj_img)
                 obj_img = distort.resize_by_dim_and_area(obj_img, bg_height, bg_width)
-                ret, mask, segmentation_mask = distort.attempt_composite(
-                    obj_img, mask, segmentation_mask, num_objects
+                ret, masks, segmentation_mask = distort.attempt_composite(
+                    obj_img, masks, segmentation_mask, bg_height, bg_width
                 )
 
-        # Overlay mask of objects on to background
+        # Overlay mask of objects on to background with alpha blending
         composite = bg_img.copy()
-        mask_no_alpha, mask_alpha = mask[:, :, :3], mask[:, :, 3]
-        composite[mask_alpha > 0] = mask_no_alpha[mask_alpha > 0]
+        for mask in masks:
+            composite = distort.alpha_blend(composite, mask)
 
         # Add noise to the composite
-        composite = distort.random_gamma(composite, 3.5)
+        composite = distort.random_gamma(composite, 1.5)
         composite = distort.random_blur(composite, 2)
         # composite = distort.random_noise(composite)
 

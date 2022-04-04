@@ -1,7 +1,8 @@
-import cv2
-import numpy as np
 import math
 import time
+
+import cv2
+import numpy as np
 
 
 def random_gamma(image, max_gamma):
@@ -34,6 +35,12 @@ def random_blur(img, maxBlur):
     return img
 
 
+def random_flip(img):
+    if np.random.rand() > 0.5:
+        return cv2.flip(img, 1)
+    return img
+
+
 def crop_box(img):  # Input: Image with only the object
     alpha = img[:, :, 3]
     x, y, w, h = cv2.boundingRect(alpha)
@@ -47,7 +54,7 @@ def rotate_object(img):
     x_offset = (hypotenuse - width) // 2
     y_offset = (hypotenuse - height) // 2
     blank_image[y_offset : y_offset + height, x_offset : x_offset + width] = img
-    rotation_degrees = np.random.randint(90) * 4
+    rotation_degrees = np.random.rand() * 360
     M = cv2.getRotationMatrix2D((hypotenuse / 2, hypotenuse / 2), rotation_degrees, 1)
     dst = cv2.warpAffine(blank_image, M, (hypotenuse, hypotenuse))
     dst = crop_box(dst)
@@ -98,42 +105,40 @@ def resize_by_dim_and_area(
         interpolation=cv2.INTER_AREA,
     )
 
-    b, g, r, a = cv2.split(resized)
-    a[a > 0] = 255
-    resized = cv2.merge([b, g, r, a])
-
     return resized
 
 
 def attempt_composite(
-    obj_img, mask, segmentation_mask, num_objects, occlusion_thresh=0.4
+    obj_img, masks, segmentation_mask, height, width, occlusion_thresh=0.4
 ):
     """
     :param obj_img: the BGRA object
-    :param mask: BGRA cv2 uint8 image, a black image with BGRA objects added in
+    :param masks: BGRA cv2 uint8 image, a black image with BGRA objects added in
     :param segmentation_mask: single channel image showing what pixels in mask belong to
      what object class
-    :param num_objects: how many objects are currently in mask
+    :param height:
+    :param width:
     :param occlusion_thresh: max allowable occlusion
     :return:
     """
     timeout = time.time() + 10
     obj_height, obj_width = obj_img.shape[:2]
-    mask_height, mask_width = mask.shape[:2]
     while time.time() < timeout:
         # Black out pixels in object img that don't have an alpha channel (just in case)
         obj_img[obj_img[:, :, 3] == 0] = (0, 0, 0, 0)
 
         # Create a black BGRA mask the size of the composite with the object at a
         # random position
-        candidate_layer = np.zeros_like(mask, dtype=np.uint8)
-        ymin = np.random.randint(mask_height - obj_height + 1)
-        xmin = np.random.randint(mask_width - obj_width + 1)
-        candidate_layer[ymin : ymin + obj_height, xmin : xmin + obj_width] = obj_img
-        candidate_alpha = candidate_layer[:, :, 3]
+        candidate_mask = np.zeros([height, width, 4], dtype=np.uint8)
+        ymin = np.random.randint(height - obj_height + 1)
+        xmin = np.random.randint(width - obj_width + 1)
+        candidate_mask[ymin : ymin + obj_height, xmin : xmin + obj_width] = obj_img
+        candidate_alpha = candidate_mask[:, :, 3]
 
         failed = False
+        num_objects = len(masks)
         if num_objects > 0:
+            # TODO: Improve the logic that does this
             # Prevent over-occlusion with existing objects
             candidate_alpha_f = candidate_alpha.astype(np.float32)
             candidate_alpha_f[candidate_alpha_f > 0] = 1.0
@@ -147,13 +152,12 @@ def attempt_composite(
                     break
 
         if not failed:
-            # New object can now safely be merged with existing mask
-            mask[candidate_alpha > 0] = candidate_layer[candidate_alpha > 0]
+            masks.append(candidate_mask)
             segmentation_mask[candidate_alpha > 0] = num_objects + 1
 
-            return True, mask, segmentation_mask
+            return True, masks, segmentation_mask
 
-    return False, mask, segmentation_mask
+    return False, masks, segmentation_mask
 
 
 def get_poly_from_mask(mask):
@@ -166,3 +170,21 @@ def get_poly_from_mask(mask):
         polygons.append(np.ravel(c).tolist())
 
     return polygons, area
+
+
+def alpha_blend(img, bgra_img):
+    # Convert uint8 to float
+    img_f = img.astype(float)
+    bgra_img_f = bgra_img.astype(float)
+    bgr_img_f, alpha_f = bgra_img_f[:, :, :3], bgra_img_f[:, :, 3:]
+    alpha_f /= 255.0
+
+    # Multiply the background with ( 1 - alpha )
+    background = (1.0 - alpha_f) * img_f
+    # Multiply the foreground with the alpha matte
+    foreground = alpha_f * bgr_img_f
+
+    # Add the masked foreground and background.
+    out_img = cv2.add(foreground, background).astype(np.uint8)
+
+    return out_img
