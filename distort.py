@@ -1,5 +1,6 @@
 import math
 import time
+from collections import Counter
 
 import cv2
 import numpy as np
@@ -121,41 +122,46 @@ def attempt_composite(
     :param occlusion_thresh: max allowable occlusion
     :return:
     """
-    timeout = time.time() + 10
     obj_height, obj_width = obj_img.shape[:2]
-    while time.time() < timeout:
-        # Black out pixels in object img that don't have an alpha channel (just in case)
-        obj_img[obj_img[:, :, 3] == 0] = (0, 0, 0, 0)
+    max_y_coord = height - obj_height + 1
+    max_x_coord = width - obj_width + 1
+    if max_y_coord < 0 or max_x_coord < 0:
+        # The given obj_img is too large to fit
+        return False, masks, segmentation_mask
+    # Black out pixels in object img that don't have an alpha channel (just in case)
+    obj_img[obj_img[:, :, 3] == 0] = (0, 0, 0, 0)
+    num_objects = len(masks)
+    pixel_counts = Counter()
+    for mask_idx, mask in enumerate(masks):
+        alpha = mask[:, :, 3]
+        pixel_counts[mask_idx] = np.count_nonzero(alpha)
 
-        # Create a black BGRA mask the size of the composite with the object at a
-        # random position
-        candidate_mask = np.zeros([height, width, 4], dtype=np.uint8)
-        ymin = np.random.randint(height - obj_height + 1)
-        xmin = np.random.randint(width - obj_width + 1)
-        candidate_mask[ymin : ymin + obj_height, xmin : xmin + obj_width] = obj_img
-        candidate_alpha = candidate_mask[:, :, 3]
+    success = True
+    # Create a black BGRA mask the size of the composite with the object at a
+    # random position
+    candidate_mask = np.zeros([height, width, 4], dtype=np.uint8)
+    ymin = np.random.randint(max_y_coord)
+    xmin = np.random.randint(max_x_coord)
+    candidate_mask[ymin : ymin + obj_height, xmin : xmin + obj_width] = obj_img
+    candidate_alpha = candidate_mask[:, :, 3]
 
-        failed = False
-        num_objects = len(masks)
-        if num_objects > 0:
-            # TODO: Improve the logic that does this
-            # Prevent over-occlusion with existing objects
-            candidate_alpha_f = candidate_alpha.astype(np.float32)
-            candidate_alpha_f[candidate_alpha_f > 0] = 1.0
-            for obj_idx in range(num_objects):
-                existing_obj_alpha = np.zeros_like(segmentation_mask)
-                existing_obj_alpha[segmentation_mask == obj_idx + 1] = 1.0
-                occlusion_area = np.sum(existing_obj_alpha * candidate_alpha_f)
-                occlusion_percent = occlusion_area / np.sum(existing_obj_alpha)
-                if occlusion_percent > occlusion_thresh:
-                    failed = True
-                    break
+    if num_objects > 0:
+        # Overlay the new object, and see if the new pixel counts indicate whether
+        # any of the objects have become over-occluded
+        candidate_segmentation_mask = segmentation_mask.copy()
+        candidate_segmentation_mask[candidate_alpha > 0] = num_objects + 1
+        for obj_idx in range(num_objects):
+            new_pixel_count = len(
+                candidate_segmentation_mask[candidate_segmentation_mask == obj_idx + 1]
+            )
+            if new_pixel_count < (1 - occlusion_thresh) * pixel_counts[obj_idx]:
+                success = False
+                break
 
-        if not failed:
-            masks.append(candidate_mask)
-            segmentation_mask[candidate_alpha > 0] = num_objects + 1
-
-            return True, masks, segmentation_mask
+    if success:
+        masks.append(candidate_mask)
+        segmentation_mask[candidate_alpha > 0] = num_objects + 1
+        return True, masks, segmentation_mask
 
     return False, masks, segmentation_mask
 

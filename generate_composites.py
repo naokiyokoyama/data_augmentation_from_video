@@ -142,10 +142,16 @@ class CompositeGenerator:
                 obj_img = cv2.imread(random_obj_path, cv2.IMREAD_UNCHANGED)
                 obj_img = distort.rotate_object(obj_img)
                 obj_img = distort.random_flip(obj_img)
-                obj_img = distort.resize_by_dim_and_area(obj_img, bg_height, bg_width)
-                ret, masks, segmentation_mask = distort.attempt_composite(
-                    obj_img, masks, segmentation_mask, bg_height, bg_width
-                )
+                for attempt in range(10):
+                    obj_img = distort.resize_by_dim_and_area(
+                        obj_img, bg_height, bg_width
+                    )
+                    ret, masks, segmentation_mask = distort.attempt_composite(
+                        obj_img, masks, segmentation_mask, bg_height, bg_width
+                    )
+                    if ret:
+                        print(attempt)
+                        break
 
         # Overlay mask of objects on to background with alpha blending
         composite = bg_img.copy()
