@@ -150,7 +150,6 @@ class CompositeGenerator:
                         obj_img, masks, segmentation_mask, bg_height, bg_width
                     )
                     if ret:
-                        print(attempt)
                         break
 
         # Overlay mask of objects on to background with alpha blending
