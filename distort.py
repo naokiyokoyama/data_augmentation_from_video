@@ -1,5 +1,4 @@
 import math
-import time
 from collections import Counter
 
 import cv2
@@ -125,7 +124,7 @@ def attempt_composite(
     obj_height, obj_width = obj_img.shape[:2]
     max_y_coord = height - obj_height + 1
     max_x_coord = width - obj_width + 1
-    if max_y_coord < 0 or max_x_coord < 0:
+    if max_y_coord < 1 or max_x_coord < 1:
         # The given obj_img is too large to fit
         return False, masks, segmentation_mask
     # Black out pixels in object img that don't have an alpha channel (just in case)
