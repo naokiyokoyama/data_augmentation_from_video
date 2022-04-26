@@ -143,9 +143,7 @@ class CompositeGenerator:
                 obj_img = distort.rotate_object(obj_img)
                 obj_img = distort.random_flip(obj_img)
                 for attempt in range(10):
-                    obj_img = distort.resize_by_dim_and_area(
-                        obj_img, bg_height, bg_width
-                    )
+                    obj_img = distort.resize_by_dim(obj_img, bg_height, bg_width)
                     ret, masks, segmentation_mask = distort.attempt_composite(
                         obj_img, masks, segmentation_mask, bg_height, bg_width
                     )
@@ -158,8 +156,8 @@ class CompositeGenerator:
             composite = distort.alpha_blend(composite, mask)
 
         # Add noise to the composite
-        composite = distort.random_gamma(composite, 1.5)
-        composite = distort.random_blur(composite, 2)
+        composite = distort.random_gamma(composite, 1.7)
+        composite = distort.random_blur(composite, 3)
         # composite = distort.random_noise(composite)
 
         self.segmentation_mask_to_coco(segmentation_mask, chosen_class_ids)

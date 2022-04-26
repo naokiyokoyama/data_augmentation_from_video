@@ -51,12 +51,14 @@ def main():
         existing_data = None
         num_existing = 0
 
+    print("Loading generator...")
     cg = CompositeGenerator(
         objects_dir=args.objects_dir,
         background_dir=args.background_dir,
         num_obj_per_composite=4,
         existing_data=existing_data,
     )
+    print("Finished loading generator.\nStarting generation.")
 
     try:
         for idx in tqdm.trange(args.num_composites):

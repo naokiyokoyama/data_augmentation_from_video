@@ -1,4 +1,5 @@
 import math
+import random
 from collections import Counter
 
 import cv2
@@ -62,47 +63,24 @@ def rotate_object(img):
     return dst
 
 
-def resize_by_dim_and_area(
+def resize_by_dim(
     object_img,
     bg_height,
     bg_width,
-    upper_dim_bound=0.50,
-    lower_dim_bound=0.05,
-    upper_area_bound=0.20,
-    lower_area_bound=0.05,
+    lower_dim_bound=0.15,
+    upper_dim_bound=0.95,
 ):
-    # 1. First, constrain using larger dimension
-    # 2. If it's still too large, constrain by area
-    object_height, object_width = object_img.shape[:2]
-    dim_constrain_percentage = lower_dim_bound + np.random.random() * (
-        upper_dim_bound - lower_dim_bound
-    )
-
-    # Constrain using the larger dimension
-    if object_height > object_width:
-        constrained_height = int(bg_height * dim_constrain_percentage)
-        constrained_width = int(object_width * constrained_height / object_height)
+    obj_height, obj_width = object_img.shape[:2]
+    dim_scale = random.uniform(lower_dim_bound, upper_dim_bound)
+    if obj_height > obj_width:
+        new_obj_height = dim_scale * bg_height
+        scale = new_obj_height / obj_height
     else:
-        constrained_width = int(bg_width * dim_constrain_percentage)
-        constrained_height = int(object_height * constrained_width / object_height)
-
-    # Constrain by area if its still too large
-    background_area = bg_height * bg_width
-    constrained_object_area = constrained_height * constrained_width
-    if constrained_object_area > upper_area_bound * background_area:
-        area_constrain_percentage = lower_area_bound + np.random.random() * (
-            upper_area_bound - lower_area_bound
-        )
-        scale_factor = math.sqrt(
-            area_constrain_percentage * background_area / constrained_object_area
-        )
-        constrained_height = int(scale_factor * constrained_height)
-        constrained_width = int(scale_factor * constrained_width)
+        new_obj_width = dim_scale * bg_width
+        scale = new_obj_width / obj_width
 
     resized = cv2.resize(
-        object_img,
-        (constrained_width, constrained_height),
-        interpolation=cv2.INTER_AREA,
+        object_img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_AREA
     )
 
     return resized
